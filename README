@@ -1,0 +1,230 @@
+PROCEDIMENTOS
+
+# procedimento realizado em 
+
+Linux gabriel-VJF154 5.11.0-27-generic #29~20.04.1-Ubuntu SMP Wed Aug 11 15:58:17 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+conda 4.10.1
+Python 3.8.8
+
+
+# Instalação das bibliotecas
+
+# Download w instalação manual do grib2
+wget https://www.ftp.cpc.ncep.noaa.gov/wd51we/wgrib2/wgrib2.tgz 
+tar -xvzf wgrib2.tgz
+cd grib2
+export FC=gfortran
+make
+
+# CASO CONTRARIO MODIFICAR O CAMINHO DO WGRIB NO SCRIPT BASH
+
+# instalação das bibliotecas utilizadas nos pythons
+pip install salem
+pip install descartes	
+pip install netCDF4
+pip install GDAL
+pip install cartopy
+
+----------------------------------------------
+	PRIMEIRA DEMANDA
+
+	CFSgFilterFractalAnalsis.sh
+----------------------------------------------
+
+Apesar de ser pedido explicitamente um código em Python, optei pelo desenvolvimento de uma rotina em Bash. Pois deste modo, os níveis de abstração entre o interpretador e o sistema operacional Linux é precisa de menos passos para a operação. Além disto, dentro do script bash a execução de comandos/softwares externos precisa de menos código do que se rodados em Python. E a implementação operaciopnal - agendamento via crontab - é mais simples.
+
+O proposito deste script é realizar o download dos dados utilizando a Api GribFilter do Nomads do modelo CFSv2 Esemble 01 (disponível no gribfilter). A iteração de download ocorre realizando um loop while infinito na soma da data inicial (hoje as 00) até o momento em que aparece um erro 404 no request do download.
+
+O passo seguinte é utilizar a ferramenta Wgrib2 compilada previamente, para concatenar todos os arquivos grib2 em um único NetCDF. A justificativa para esta conversão se dá pela versatilidade de um arquivo NetCDF em relação à um arquivo grib2, sendo possível manipular arquivos .nc nos mais diversos softwares de visualização como Qgis, Matlab, GrADS, ncview e Python.
+
+Com o download finalizado e o arqivo netcdf criado, chama-se a função GERAPRODUTOS, na qual ela chamará os demais python scripts para rodar de forma automática com o envio de parâmetros iniciais como a Data da rodada e a Bacia de interesse.
+
+----------------------------------------------
+	SEGUNDA DEMANDA
+
+	geraMapas.py
+----------------------------------------------
+
+Script Python que gera um mosaico da previsão de chuva acumulada mensal para o Brasil a partir dos dados do CFSv2.
+
+----------------------------------------------
+	TERCEIRA DEMANDA
+
+	quaisPontos.py
+	geraGraf.py
+----------------------------------------------
+Script Python que gera um recorte no netCDF (raster) a partir de um shapefile (vetor)
+
+Um ponto que ser fez necessário para solucionar este problema foi: Os arquivos em .shp encaminhados na demanda são arquivos no formato de LINESTRING e a biblioteca utilizada para fazer o recorte funciona! Mas com o arquivo LINESTRING pega apenas os pontos de grande onde há valores do shp. Ou seja, estava pegando os pontos das bordas, não os pontos internos. 
+
+Assim com o GDAL uma ferramenta de manipulaçao de dados geográficos via linha de comando, possibilitou a conversão de LINESTRING para POLYGON nos shapefiles com o seguinte comando 
+
+	$ ogr2ogr <nomedir> <LineStringFile.shp> -nlt POLYGON
+	
+E a partir dos novos shapefiles foi possível então fazer a seleção dos pontos de interesse e que é mostrados a partir do scritp "quaisPontos.py".
+
+O script "geraGraf.py" gera um gráfico da série temporal dos para a média dos pontos de grade, contemplados pela área do Polígono do shapefile. Os dados apresentados são os valores méddios, os valores de ponto máximo, o acumulado da média, e algumas estatísticas simples.
+
+----------------------------------------------
+	QUARTA DEMANDA
+
+	geraAnom.py
+----------------------------------------------
+A demanda em sí, ficou um pouco confusa, no entanto assumi que os valores de interesse desta atividade seria para as anomalias de precipitação baseada na méida prevista para os pontos de grade a bacia hidrográgica.
+
+O primeiro passou foi a leitura dos arquivos históricos, onde as colunas são os anos e as linhas são os meses. Assim com o pandas criei um data frame neste formato, e removi a primeira coluna ano todo com "zeros" e a última coluna, também um ano com muito "zeros". E depois adicionei uma última coluna chamada "clima" com a média de tosdos os meses no decorrer dos anos... 
+
+Aproveitando boa parte da funcionalidade desenvolvida nos scripts anteriores (geraMapa.py), calculei o acumulado mensal da previsão. Deste modo foi possível calcular a previsão da anomalia mensal (diferença entre o previsto e o clima eseprado) e plotado em um gráfico de dois eixos mostrando a evolução dos acumulados mensais e a evolução das anomalias para a bacia.
+
+----------------------------------------------
+	COMO RODAR
+----------------------------------------------
+
+Certifique-se de que as bibliotecas estão instaladas corretamente, e o caminho do wgrib2 também. Assumindo que isto estaja de acordo execute:
+
+./CFSgFilterFractalAnalsis.sh
+
+será criado o diretório cfs com os dados e fig com as figuras
+
+
+./
+├── bacias
+│   ├── bacia_do_amazonas
+│   │   ├── bacia_do_amazonas.dbf
+│   │   ├── bacia_do_amazonas.prj
+│   │   ├── bacia_do_amazonas.shp
+│   │   └── bacia_do_amazonas.shx
+│   ├── bacia_do_amazonas.cpg
+│   ├── bacia_do_amazonas.dbf
+│   ├── bacia_do_amazonas.prj
+│   ├── bacia_do_amazonas.shp
+│   ├── bacia_do_amazonas.shx
+│   ├── bacia_do_grande
+│   │   ├── bacia_do_grande.dbf
+│   │   ├── bacia_do_grande.prj
+│   │   ├── bacia_do_grande.shp
+│   │   └── bacia_do_grande.shx
+│   ├── bacia_do_grande.cpg
+│   ├── bacia_do_grande.dbf
+│   ├── bacia_do_grande.prj
+│   ├── bacia_do_grande.shp
+│   ├── bacia_do_grande.shx
+│   ├── bacia_do_iguacu
+│   │   ├── bacia_do_iguacu.dbf
+│   │   ├── bacia_do_iguacu.prj
+│   │   ├── bacia_do_iguacu.shp
+│   │   └── bacia_do_iguacu.shx
+│   ├── bacia_do_iguacu.cpg
+│   ├── bacia_do_iguacu.dbf
+│   ├── bacia_do_iguacu.prj
+│   ├── bacia_do_iguacu.shp
+│   ├── bacia_do_iguacu.shx
+│   ├── bacia_do_paranapanema
+│   │   ├── bacia_do_paranapanema.dbf
+│   │   ├── bacia_do_paranapanema.prj
+│   │   ├── bacia_do_paranapanema.shp
+│   │   └── bacia_do_paranapanema.shx
+│   ├── bacia_do_paranapanema.cpg
+│   ├── bacia_do_paranapanema.dbf
+│   ├── bacia_do_paranapanema.prj
+│   ├── bacia_do_paranapanema.shp
+│   ├── bacia_do_paranapanema.shx
+│   ├── bacia_do_tiete
+│   │   ├── bacia_do_tiete.dbf
+│   │   ├── bacia_do_tiete.prj
+│   │   ├── bacia_do_tiete.shp
+│   │   └── bacia_do_tiete.shx
+│   ├── bacia_do_tiete.cpg
+│   ├── bacia_do_tiete.dbf
+│   ├── bacia_do_tiete.prj
+│   ├── bacia_do_tiete.shp
+│   ├── bacia_do_tiete.shx
+│   ├── bacia_do_tocantins
+│   │   ├── bacia_do_tocantins.dbf
+│   │   ├── bacia_do_tocantins.prj
+│   │   ├── bacia_do_tocantins.shp
+│   │   └── bacia_do_tocantins.shx
+│   ├── bacia_do_tocantins.cpg
+│   ├── bacia_do_tocantins.dbf
+│   ├── bacia_do_tocantins.prj
+│   ├── bacia_do_tocantins.shp
+│   ├── bacia_do_tocantins.shx
+│   ├── bacia_do_uruguai
+│   │   ├── bacia_do_uruguai.dbf
+│   │   ├── bacia_do_uruguai.prj
+│   │   ├── bacia_do_uruguai.shp
+│   │   └── bacia_do_uruguai.shx
+│   ├── bacia_do_uruguai.cpg
+│   ├── bacia_do_uruguai.dbf
+│   ├── bacia_do_uruguai.prj
+│   ├── bacia_do_uruguai.shp
+│   ├── bacia_do_uruguai.shx
+│   └── bacias_cfs.zip
+├── cfs
+│   └── 2021090200
+│       ├── cfs.01.2021090200.nc
+│       ├── pgbf2021090200.01.2021090200.grb2
+│       ├── pgbf2021090206.01.2021090200.grb2
+│       ├── pgbf2021090212.01.2021090200.grb2
+│       ├── pgbf2021090218.01.2021090200.grb2
+│       ├── pgbf2021090300.01.2021090200.grb2
+│       ├── pgbf2021090306.01.2021090200.grb2
+│       ├── ...
+│       └── cfs.01.2021090200.nc
+├── CFSgFilterFractalAnalsis.sh
+├── geraAnom.py
+├── geraGraf.py
+├── geraMapas.py
+├── quaisPontos.py
+├── chuvas
+│   ├── chuva_CFS_amazonia.txt
+│   ├── chuva_CFS_grande.txt
+│   ├── chuva_CFS_iguacu.txt
+│   ├── chuva_CFS_paranapanema.txt
+│   ├── chuva_CFS_tiete.txt
+│   ├── chuva_CFS_tocantins.txt
+│   ├── chuva_CFS_uruguai.txt
+│   └── Chuvas_CFS.rar
+├── figs
+│   ├── bacia_do_amazonas
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_grande
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_iguacu
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_paranapanema
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_tiete
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_tocantins
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   ├── bacia_do_uruguai
+│   │   ├── anom_2021090200.png
+│   │   ├── pontos_2021090200.png
+│   │   └── timeseries_2021090200.png
+│   └── mensal_2021090200.png
+└── grib2
+    └── ...
+
+
+
+
+
+
+
+
+
+
+
