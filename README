@@ -1,0 +1,27 @@
+PROCEDIMENTOS
+
+
+# procedimento realizado em uma Linux gabriel-VJF154 5.11.0-27-generic #29~20.04.1-Ubuntu SMP Wed Aug 11 15:58:17 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux
+
+# Download w instalação manual do grib2
+wget https://www.ftp.cpc.ncep.noaa.gov/wd51we/wgrib2/wgrib2.tgz 
+tar -xvzf wgrib2.tgz
+cd grib2
+export FC=gfortran
+make
+
+# instalação do cdo
+sudo apt install cdo
+
+
+pip install salem
+pip install descartes
+pip install netCDF4
+
+
+
+# 
+pip install GDAL
+
+# converte de linestring para poligono com o gdal via linha de comando
+ogr2ogr <nomedir> <LineStringFile.shp> -nlt POLYGON
